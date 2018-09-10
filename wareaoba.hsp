@@ -1,4 +1,4 @@
-/* 戦場のカメラマン 青葉 Ver.1.1 */
+/* 戦場のカメラマン 青葉 Ver.1.2 */
 
 	#packopt name "wareaoba"
 	#include "hspcv.as"
@@ -76,10 +76,13 @@
 		frame_rate_list += str(cnt) + "fps\n"
 	loop
 	;ズレ検出用定数
+	;左上・右上・右下・左下・上・右・下・左
 	pos_x1 = kFlashWX / 2 :pos_x2 = kFlashWX + 1
 	pos_y1 = kFlashWY / 2 :pos_y2 = kFlashWY + 1
-	check_x.0 = pos_x1, pos_x2, pos_x2, pos_x2, pos_x1,      0,      0
-	check_y.0 =      0,      0, pos_y1, pos_y2, pos_y2, pos_y2, pos_y1
+	check_x.0 = 0, pos_x2, pos_x2,      0, pos_x1, pos_x2, pos_x1,      0
+	check_y.0 = 0,      0, pos_y2, pos_y2,      0, pos_y1, pos_y2, pos_y1
+	move_x.0 = 1, -1, -1,  1,  0, -1,  0,  1
+	move_y.0 = 1,  1, -1, -1,  1,  0, -1,  0
 	;その他初期設定
 	save_buffer_size = 10						;保存する前後のフレーム数
 	frame_rate = 20								;保存するfps
@@ -189,16 +192,26 @@
 			;デバイスコンテキストを削除する
 			ReleaseDC window_handle, hdc_window
 			;RGB値で判定する。四隅と各辺の中央の色を取得し、1つでも違うものがあればアウト
-			pget 0, 0
-			check_r = ginfo_r :check_g = ginfo_g :check_b = ginfo_b
-			auto_set_flg = FALSE
-			for k, 0, 7
+			dim clr, 8
+			for k, 0, 8
 				pget check_x@(k), check_y@(k)
-				if((check_r != ginfo_r) || (check_g != ginfo_g) || (check_b != ginfo_b)){
-					auto_set_flg = TRUE
-					_break
-				}
+				clr(k) = (ginfo_r * 1000 + ginfo_g) * 1000 + ginfo_b
 			next
+			auto_set_flg = FALSE
+			if((clr(0) != clr(1)) && (clr(1) == clr(2))){
+				flash_position(0) += move_x@(0)
+				flash_position(1) += move_y@(0)
+				auto_set_flg = TRUE
+			}else{
+				for k, 1, 8
+					if(clr(0) != clr(k)){
+						flash_position(0) += move_x@(k)
+						flash_position(1) += move_y@(k)
+						auto_set_flg = TRUE
+						_break
+					}
+				next
+			}
 		return auto_set_flg
 	#global
 	#module misc
