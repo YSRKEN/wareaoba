@@ -1,8 +1,9 @@
-/* 戦場のカメラマン 青葉 Ver.1.5 */
+/* 戦場のカメラマン 青葉 Ver.2.0 */
 
 	#packopt name "wareaoba"
 	#include "hspcv.as"
 	#include "hspext.as"
+	#include "SearchKanCollePos.as"
 	onexit gosub *exit
 
 /* マクロ宣言 */
@@ -150,7 +151,7 @@
 		return
 		// ゲームの画面を探索する
 		#deffunc GamePositionSearch int desktop_buffer_id, array square, array flash_position, array game_window_size
-			buffer kTempBufferID, 
+			buffer kTempBufferID,
 			gsel desktop_buffer_id
 			pget square(0), square(1)
 			GetSquare px, py, wx, wy, square, ginfo_r, ginfo_g, ginfo_b
@@ -184,13 +185,9 @@
 		return
 		// 艦これの画面のスクリーンショットを取得する
 		#deffunc FlashScreenShot int flash_buffer_id, int window_handle, array flash_position
-			gsel flash_buffer_id
-			;デスクトップのデバイスコンテキストを作成する
-			hdc_window = GetWindowDC(window_handle)
-			;デスクトップの画像をコピーする
-			BitBlt hdc, 0, 0, game_window_size@(0, is_special_size_flg@), game_window_size@(1, is_special_size_flg@), hdc_window, flash_position(0), flash_position(1), SRCCOPY | CAPTUREBLT
-			;デバイスコンテキストを削除する
-			ReleaseDC window_handle, hdc_window
+			DesktopScreenShot kDesktopBufferID@, desktop_param@
+			buffer flash_buffer_id, game_window_size@(0, 1), game_window_size@(1, 1)
+			gcopy kDesktopBufferID@, flash_position@(0), flash_position@(1), game_window_size@(0, 1), game_window_size@(1, 1)
 		return
 		#defcfunc CheckMoveFlash int window_handle, array flash_position
 			;ズレ検出用定数
@@ -526,6 +523,7 @@
 	objsize SIZE_X(1), SIZE_Y(1)
 		POS_XY 0, 0
 			combox get_pos_mode,,"オート\nクリック\nクロップ\nﾏﾆｭｱﾙ"
+			objenable stat, 0
 		POS_XY 1, 0
 			button gosub "座標取得", *get_pos
 		POS_XY 2, 0
@@ -543,8 +541,10 @@
 			button gosub "参照...", *browse
 		POS_XY 0, 4
 			button gosub "選択...", *option
+			objenable stat, 0
 		POS_XY 1, 4
 			chkbox "自動撮影", auto_cap_flg
+			objenable stat, 0
 		POS_XY 2, 4
 			chkbox "ズレ補正", check_move_flash_flg
 	objsize SIZE_X(2), SIZE_Y(1)
@@ -619,147 +619,8 @@
 					gosub *get_pos_local
 				}else{
 					// 艦これの画面の周囲のRGB値から、ズレがないかを判定する
-					if((is_special_size_flg == FALSE) && (check_move_flash_flg)){
-						if(CheckMoveFlash(window_handle, flash_position)){
-							gosub *get_pos_local
-						}
-					}
-				}
-			}
-			// 自動撮影
-			if(is_special_size_flg == FALSE){
-				if((auto_cap_flg) && (auto_cap_stop_flg == FALSE)){
-					gsel kRingBufferID + (cnt \ ring_buffer_size)
-					if(auto_cap_antiair_cutin_flg){
-						if(NearColor(785,11,163,198,221)){
-						if(NearColor(7,13,172,204,224)){
-						if(NearColor(787,473,137,183,206)){
-							PutLog "【自動撮影(対空カットイン)】"
-							gosub *set_picture_timer
-							save_picture_count += WaitTime(1.0)
-							auto_cap_stop_flg = TRUE
-						}
-						}
-						}
-					}
-					if(auto_cap_day_cutin_flg){
-						if(NearColor(24,40,103,195,217)){
-						if(NearColor(31,41,102,201,222)){
-						if(NearColor(48,43,102,201,222)){
-							PutLog "【自動撮影(昼戦カットイン)】"
-							gosub *set_picture_timer
-							save_picture_count += WaitTime(1.6)
-							auto_cap_stop_flg = TRUE
-						}
-						}
-						}
-					}
-					if(auto_cap_day_attack_flg){
-						if(NearColor(24,41,29,179,183)){
-						if(NearColor(27,465,246,241,233)){
-						if(NearColor(262,461,234,225,215)){
-						/* 敵の場合は下2行を次のように書き換える
-						if(NearColor(473,464,248,243,235)){
-						if(NearColor(708,462,228,219,209)){*/
-							PutLog "【自動撮影(昼戦連撃・昼戦砲撃)】"
-							gosub *set_picture_timer
-							auto_cap_stop_flg = TRUE
-						}
-						}
-						}
-					}
-					if(auto_cap_night_cutin_flg){
-						if(NearColor(25,41,18,20,22)){
-						if(NearColor(20,41,3,3,9)){
-						if(NearColor(49,35,18,20,22)){
-							PutLog "【自動撮影(夜戦カットイン)】"
-							gosub *set_picture_timer
-							save_picture_count += WaitTime(1.0)
-							auto_cap_stop_flg = TRUE
-						}
-						}
-						}
-					}
-					if(auto_cap_night_attack_flg){
-						if(NearColor(25,41,219,238,254)){
-						if(NearColor(27,465,246,241,233)){
-						if(NearColor(262,461,234,225,215)){
-						/* 敵の場合は下2行を次のように書き換える
-						if(NearColor(473,464,248,243,235)){
-						if(NearColor(708,462,228,219,209)){*/
-							PutLog "【自動撮影(夜戦連撃・夜戦砲撃)】"
-							gosub *set_picture_timer
-							auto_cap_stop_flg = TRUE
-						}
-						}
-						}
-					}
-					if(auto_cap_broken_flg){
-						// 中破・大破時
-						// この場合では、本来WaitTimeでズラさなくても
-						// 正確なタイミングで撮れるが、被弾～中破絵までの
-						// 一連が10枚・5fpsで綺麗に収まるようにズラした
-						// (このズラしは現在モードにのみ反映される)
-						if(NearColor(0,0,250,250,250)){
-						if(NearColor(700,316,230,180,114)){
-						if(NearColor(760,447,238,180,116)){
-							PutLog "【自動撮影(中破時)】"
-							gosub *set_picture_timer
-							if(save_type == kSaveTypeNow){
-								save_picture_count += WaitTime(0.8)
-							}
-							auto_cap_stop_flg = TRUE
-						}
-						}
-						}
-						if(NearColor(0,0,250,250,250)){
-						if(NearColor(705,326,255,101,93)){
-						if(NearColor(766,472,147,82,79)){
-							PutLog "【自動撮影(大破時)】"
-							gosub *set_picture_timer
-							if(save_type == kSaveTypeNow){
-								save_picture_count += WaitTime(0.8)
-							}
-							auto_cap_stop_flg = TRUE
-						}
-						}
-						}
-					}
-					if(auto_cap_help_damage_flg){
-					if(NearColor(24,41,30,175,180)){
-					if(NearColor(80,49,29,189,192)){
-					if(NearColor(123,35,29,180,184)){
-						for k, 0, 6
-							if(NearColor(700,155 + 45 * k,255,255,255)){
-							if(NearColor(700,179 + 45 * k,255,255,255)){
-								PutLog "【自動撮影(支援射撃)】"
-								gosub *set_picture_timer
-								auto_cap_stop_flg = TRUE
-								_break
-							}
-							}
-						next
-					}
-					}
-					}
-					}
-					if(auto_cap_bomb_damage_flg){
-					if(NearColor(24,41,30,173,176)){
-					if(NearColor(57,47,29,189,192)){
-					if(NearColor(73,31,29,180,184)){
-						for k, 0, 6
-							if(NearColor(700,155 + 45 * k,255,255,255)){
-							if(NearColor(700,179 + 45 * k,255,255,255)){
-								PutLog "【自動撮影(開幕爆撃)】"
-								gosub *set_picture_timer
-								auto_cap_stop_flg = TRUE
-								_break
-							}
-							}
-						next
-					}
-					}
-					}
+					if(check_move_flash_flg){
+						gosub *get_pos_local
 					}
 				}
 			}
@@ -801,204 +662,23 @@ return
 	GetDesktopParam desktop_param
 	DesktopScreenShot kDesktopBufferID, desktop_param
 	// そこから艦これの画面を探す
-	dim flash_point, kPosDim	;艦これの画面内部の座標
-	switch get_pos_mode
-		// オート
-		case kGetPosAuto
-			;艦これの画面を直接探す
-			FlashPositionSearch kDesktopBufferID, flash_position
-			flash_point(0) = desktop_param(0) + flash_position(0) + kFlashWX / 2
-			flash_point(1) = desktop_param(1) + flash_position(1) + kFlashWY / 2
-		swbreak
-		// クリック
-		case kGetPosClick
-			;画面のスクショを最前面に表示する
-			bgscr kSelectWindowID, desktop_param(2), desktop_param(3), , desktop_param(0), desktop_param(1)
-			gsel kSelectWindowID, 2
-			gcopy kDesktopBufferID, 0, 0, desktop_param(2), desktop_param(3)
-			;相手に選択させる
-			font msgothic, kLargeFontSize
-			color
-			mes "艦これの画面をクリックして下さい。(Escで終了)"
-			mouse_click_flg = FALSE
-			repeat
-				stick key, kStickMouse
-				if(key & kStickEscKey){
-					PutLog "　キャンセルされました。"
-					break
-				}
-				if(key & kStickMouse){
-					flash_point(0) = ginfo(0)
-					flash_point(1) = ginfo(1)
-					mouse_click_flg = TRUE
-					break
-				}
-				wait 5
-			loop
-			gsel kSelectWindowID, -1
-		swbreak
-		// クロップ
-		case kGetPosCrop
-			;画面のスクショを最前面に表示する
-			bgscr kSelectWindowID, desktop_param(2), desktop_param(3), , desktop_param(0), desktop_param(1)
-			gsel kSelectWindowID, 2
-			gcopy kDesktopBufferID, 0, 0, desktop_param(2), desktop_param(3)
-			;相手に選択させる
-			font msgothic, kLargeFontSize
-			color
-			mes "艦これの画面を選択して下さい。(Escで終了)"
-			mouse_button_flg = FALSE
-			mouse_crop_flg = FALSE
-			dim rect, kRectDim
-			repeat
-				stick key, kStickMouse
-				if(key & kStickEscKey){
-					PutLog "　キャンセルされました。"
-					gsel kSelectWindowID, -1
-					break
-				}
-				if(key & kStickMouse){
-					if(mouse_button_flg){
-						// 選択途中
-						redraw 0
-							pos 0, 0
-							gcopy kDesktopBufferID, 0, 0, desktop_param(2), desktop_param(3)
-							color
-							mes "艦これの画面を選択して下さい。(Escで終了)"
-							DrawMouseSquare rect(0), rect(1), mousex, mousey
-						redraw 1
-					}else{
-						// 選択開始
-						rect(0) = mousex
-						rect(1) = mousey
-						mouse_button_flg = TRUE
-					}
-				}else{
-					if(mouse_button_flg){
-						mouse_button_flg = FALSE
-						// 選択終了
-						rect(2) = mousex
-						rect(3) = mousey
-						;選択サイズがFlashのサイズ以上かを判定
-						square_x1 = min(rect(0), rect(2))
-						square_y1 = min(rect(1), rect(3))
-						square_x2 = max(rect(0), rect(2))
-						square_y2 = max(rect(1), rect(3))
-						if((square_x2 - square_x1 >= kFlashWX) && (square_y2 - square_y1 >= kFlashWY)){
-							;艦これの画面の位置を探し、その中央の位置を返す
-							;(つまり、オートモードでの探索範囲を制限したVerってこと)
-							dim screen_param, kRectDim
-							screen_param(0) = square_x1 + desktop_param(0)
-							screen_param(1) = square_y1 + desktop_param(1)
-							screen_param(2) = square_x2 - square_x1
-							screen_param(3) = square_y2 - square_y1
-							gsel kSelectWindowID, -1
-							DesktopScreenShot kDesktopBufferID, screen_param
-							FlashPositionSearch kDesktopBufferID, flash_position
-							flash_point(0) = screen_param(0) + flash_position(0) + kFlashWX / 2
-							flash_point(1) = screen_param(1) + flash_position(1) + kFlashWY / 2
-							mouse_crop_flg = TRUE
-							break
-						}
-					}
-				}
-				wait 5
-			loop
-		swbreak
-		// マニュアル
-		case kGetPosManual
-			;画面のスクショを最前面に表示する
-			bgscr kSelectWindowID, desktop_param(2), desktop_param(3), , desktop_param(0), desktop_param(1)
-			gsel kSelectWindowID, 2
-			gcopy kDesktopBufferID, 0, 0, desktop_param(2), desktop_param(3)
-			;相手に選択させる
-			font msgothic, kLargeFontSize
-			color
-			mes "ゲームの画面を選択して下さい。(Escで終了)"
-			mouse_button_flg = FALSE
-			mouse_manual_flg = FALSE
-			dim rect, kRectDim
-			repeat
-				stick key, kStickMouse
-				if(key & kStickEscKey){
-					PutLog "　キャンセルされました。"
-					gsel kSelectWindowID, -1
-					break
-				}
-				if(key & kStickMouse){
-					if(mouse_button_flg){
-						// 選択途中
-						redraw 0
-							pos 0, 0
-							gcopy kDesktopBufferID, 0, 0, desktop_param(2), desktop_param(3)
-							color
-							mes "ゲームの画面を選択して下さい。(Escで終了)"
-							DrawMouseSquare rect(0), rect(1), mousex, mousey
-						redraw 1
-					}else{
-						// 選択開始
-						rect(0) = mousex
-						rect(1) = mousey
-						mouse_button_flg = TRUE
-					}
-				}else{
-					if(mouse_button_flg){
-						mouse_button_flg = FALSE
-						// 選択終了
-						rect(2) = mousex
-						rect(3) = mousey
-						;とりあえず中央の位置を返す(このモードだけ処理が特殊)
-						flash_point(0) = desktop_param(0) + (rect(0) + rect(2)) / 2
-						flash_point(1) = desktop_param(1) + (rect(1) + rect(3)) / 2
-						;認識用に選択した座標・サイズを記憶しておく
-						dim square, kRectDim
-						square.0 = min(rect(0), rect(2))
-						square.1 = min(rect(1), rect(3))
-						square.2 = max(rect(0), rect(2)) - min(rect(0), rect(2))
-						square.3 = max(rect(1), rect(3)) - min(rect(1), rect(3))
-						gsel kSelectWindowID, -1
-						mouse_manual_flg = TRUE
-						break
-					}
-				}
-				wait 5
-			loop
-		swbreak
-	swend
-	if((get_pos_mode == kGetPosClick) && (mouse_click_flg == FALSE)) :return
-	if((get_pos_mode == kGetPosCrop) && (mouse_crop_flg == FALSE)) :return
-	if((get_pos_mode == kGetPosCrop) && (mouse_manual_flg == FALSE)) :return
-	// 艦これ(ゲーム)の画面のハンドルを取得する
-	window_handle = GetWindowHandle(flash_point)
-	// 艦これ(ゲーム)の画面の座標を取得する
-	GetWindowParam window_handle, window_param
-	WindowScreenShot kDesktopBufferID, window_handle, window_param
-	if(get_pos_mode != kGetPosManual){
-		FlashPositionSearch kDesktopBufferID, flash_position
-		is_special_size_flg = FALSE
-	}else{
-		square.0 += desktop_param(0) - window_param(0)
-		square.1 += desktop_param(1) - window_param(1)
-		GamePositionSearch kDesktopBufferID, square, flash_position, game_window_size
-		if((game_window_size(0, 1) == kFlashWX) && (game_window_size(1, 1) == kFlashWY)){
-			is_special_size_flg = FALSE
-		}else{
-			is_special_size_flg = TRUE
-		}
-	}
+	count = Auto@SearchKanCollePos(kDesktopBufferID, rectangles, kTempBufferID)
+	if (count == 0) :return
+	is_special_size_flg = TRUE
+	flash_position(0) = rectangles(0, 0)
+	flash_position(1) = rectangles(1, 0)
+	game_window_size(0, 1) = rectangles(2, 0)
+	game_window_size(1, 1) = rectangles(3, 0)
 	get_pos_flg = TRUE
 	gsel kMainWindowID
 	objenable save_picture_button_id, TRUE
-
+	flash_point.0 = flash_position(0) + desktop_param(0) + 100, flash_position(1) + desktop_param(1) + 100
+	window_handle = GetWindowHandle(flash_point)
 	PutLog "　ウィンドウハンドル：" + window_handle
 	PutLog "　ウィンドウ左上座標：" + window_param(0) + "," + window_param(1)
 	PutLog "　ウィンドウサイズ：" + window_param(2) + "," + window_param(3)
-	if(is_special_size_flg == FALSE){
-		PutLog "　艦これ相対左上座標：" + flash_position(0) + "," + flash_position(1)
-	}else{
-		PutLog "　ゲーム相対左上座標：" + flash_position(0) + "," + flash_position(1)
-		PutLog "　ゲーム画面サイズ：" + game_window_size(0, 1) + "," + game_window_size(1, 1)
-	}
+	PutLog "　ゲーム相対左上座標：" + flash_position(0) + "," + flash_position(1)
+	PutLog "　ゲーム画面サイズ：" + game_window_size(0, 1) + "," + game_window_size(1, 1)
 	// マニュアルモード対応のための特殊処理
 	buffer kCheckBufferID, game_window_size(0, is_special_size_flg) + 2, game_window_size(1, is_special_size_flg) + 2
 	gosub *ring_buffer_init
@@ -1006,14 +686,15 @@ return
 
 /* 艦これの座標を取得し直す */
 *get_pos_local
-	PutLog "【ズレ検出】"
-	GetWindowParam window_handle, window_param
-	WindowScreenShot kDesktopBufferID, window_handle, window_param
-	if(is_special_size_flg == FALSE){
-		FlashPositionSearch kDesktopBufferID, flash_position
-		PutLog "　艦これ相対左上座標：" + flash_position(0) + "," + flash_position(1)
-	}else{
-		GamePositionSearch kDesktopBufferID, square, flash_position, game_window_size
+	DesktopScreenShot kDesktopBufferID, desktop_param
+	if(isValidRect@SearchKanCollePos(kDesktopBufferID, flash_position(0), flash_position(1), game_window_size(0, 1), game_window_size(1, 1)) == 0){
+		PutLog "【ズレ検出】"
+		count = Auto@SearchKanCollePos(kDesktopBufferID, rectangles, kTempBufferID)
+		if (count == 0) :PutLog "　※座標を再取得できませんでした。" :return
+		flash_position(0) = rectangles(0, 0)
+		flash_position(1) = rectangles(1, 0)
+		game_window_size(0, 1) = rectangles(2, 0)
+		game_window_size(1, 1) = rectangles(3, 0)
 		PutLog "　ゲーム相対左上座標：" + flash_position(0) + "," + flash_position(1)
 	}
 return
