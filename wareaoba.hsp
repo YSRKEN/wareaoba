@@ -1,4 +1,4 @@
-/* 戦場のカメラマン 青葉 Ver.1.4 */
+/* 戦場のカメラマン 青葉 Ver.1.5 */
 
 	#packopt name "wareaoba"
 	#include "hspcv.as"
@@ -29,7 +29,7 @@
 	// オブジェクト
 	#const global kFlashWX 800
 	#const global kFlashWY 480
-	#const kObjX 60			;ボタン等のオブジェクトの大きさ
+	#const kObjX 70			;ボタン等のオブジェクトの大きさ
 	#const kObjY 20
 	#const kObjSpace 10		;オブジェクトの間隔
 	#const kObjSpaceX kObjX + kObjSpace
@@ -84,22 +84,11 @@
 	repeat kMaxFrameRate, 1
 		frame_rate_list += str(cnt) + "fps\n"
 	loop
-	;自動撮影用設定
-	auto_cap_antiair_cutin_flg = TRUE
-	auto_cap_day_cutin_flg     = TRUE
-	auto_cap_day_attack_flg    = TRUE
-	auto_cap_night_cutin_flg   = TRUE
-	auto_cap_night_attack_flg  = TRUE
-	auto_cap_broken_flg        = TRUE
 	;その他初期設定
-	save_buffer_size = 10						;保存する前後のフレーム数
-	frame_rate = 5								;保存するfps
-	save_buffer_size_index = save_buffer_size - 1
-	frame_rate_index = frame_rate - 1
-	file_type = kFileTypePng					;保存するファイルタイプ
-	save_type = kSaveTypeNow					;保存時のモード
 	sdim folder_path, 260						;フォルダパス
-	get_pos_manual_flg = FALSE
+	is_special_size_flg = FALSE					;取得画像サイズが800x480ならFALSE
+	exe_path = dir_cur
+	LoadSoftData
 
 /* モジュール */
 	#module api
@@ -199,17 +188,17 @@
 			;デスクトップのデバイスコンテキストを作成する
 			hdc_window = GetWindowDC(window_handle)
 			;デスクトップの画像をコピーする
-			BitBlt hdc, 0, 0, game_window_size@(0, get_pos_manual_flg@), game_window_size@(1, get_pos_manual_flg@), hdc_window, flash_position(0), flash_position(1), SRCCOPY | CAPTUREBLT
+			BitBlt hdc, 0, 0, game_window_size@(0, is_special_size_flg@), game_window_size@(1, is_special_size_flg@), hdc_window, flash_position(0), flash_position(1), SRCCOPY | CAPTUREBLT
 			;デバイスコンテキストを削除する
 			ReleaseDC window_handle, hdc_window
 		return
 		#defcfunc CheckMoveFlash int window_handle, array flash_position
 			;ズレ検出用定数
 			;左上・右上・右下・左下・上・右・下・左
-			pos_x1 = game_window_size@(0, get_pos_manual_flg@) / 2
-			pos_x2 = game_window_size@(0, get_pos_manual_flg@) + 1
-			pos_y1 = game_window_size@(1, get_pos_manual_flg@) / 2
-			pos_y2 = game_window_size@(1, get_pos_manual_flg@) + 1
+			pos_x1 = game_window_size@(0, is_special_size_flg@) / 2
+			pos_x2 = game_window_size@(0, is_special_size_flg@) + 1
+			pos_y1 = game_window_size@(1, is_special_size_flg@) / 2
+			pos_y2 = game_window_size@(1, is_special_size_flg@) + 1
 			check_x.0 = 0, pos_x2, pos_x2,      0, pos_x1, pos_x2, pos_x1,      0
 			check_y.0 = 0,      0, pos_y2, pos_y2,      0, pos_y1, pos_y2, pos_y1
 			move_x.0 = 1, -1, -1,  1,  0, -1,  0,  1
@@ -218,7 +207,7 @@
 			;デスクトップのデバイスコンテキストを作成する
 			hdc_window = GetWindowDC(window_handle)
 			;デスクトップの画像をコピーする
-			BitBlt hdc, 0, 0, game_window_size@(0, get_pos_manual_flg@) + 2, game_window_size@(0, get_pos_manual_flg@) + 2, hdc_window, flash_position(0) - 1, flash_position(1) - 1, SRCCOPY | CAPTUREBLT
+			BitBlt hdc, 0, 0, game_window_size@(0, is_special_size_flg@) + 2, game_window_size@(0, is_special_size_flg@) + 2, hdc_window, flash_position(0) - 1, flash_position(1) - 1, SRCCOPY | CAPTUREBLT
 			;デバイスコンテキストを削除する
 			ReleaseDC window_handle, hdc_window
 			;RGB値で判定する。四隅と各辺の中央の色を取得し、1つでも違うものがあればアウト
@@ -327,6 +316,174 @@
 				if(flg) :wy__ = y - py__ + 1 :_break
 			next
 		return
+		#deffunc LoadSoftData
+			// デフォルト設定で初期化する
+			;自動撮影
+			auto_cap_flg@ = FALSE	;自動撮影機能
+			auto_cap_antiair_cutin_flg@ = TRUE
+			auto_cap_day_cutin_flg@     = TRUE
+			auto_cap_day_attack_flg@    = TRUE
+			auto_cap_night_cutin_flg@   = TRUE
+			auto_cap_night_attack_flg@  = TRUE
+			auto_cap_broken_flg@        = TRUE
+			auto_cap_help_damage_flg@   = TRUE
+			auto_cap_bomb_damage_flg@   = TRUE
+			;保存設定
+			save_buffer_size@ = 10			;保存する前後のフレーム数
+			save_buffer_size_index@ = save_buffer_size@ - 1
+			frame_rate@ = 5					;保存するfps
+			frame_rate_index@ = frame_rate@ - 1
+			file_type@ = kFileTypePng@		;保存するファイルタイプ
+			save_type@ = kSaveTypeNow@		;保存時のモード
+			folder_path@ = ""				;保存時のパス指定
+			shortcut_flg@ = FALSE			;ショートカットキー
+			;その他
+			get_pos_mode@ = kGetPosAuto@
+			check_move_flash_flg@ = TRUE	;ズレ補正機能
+			// iniファイルを読み込んで設定を反映する
+			exist "" + exe_path@ + "\\setting.ini"
+			if(strsize != -1){
+				// バッファに読み込む
+				notesel text_buffer
+				noteload exe_path@ + "\\setting.ini"
+				// 1行づつ読み込んで処理する
+				for k, 0, notemax
+					noteget getline, k
+					// コメントは削除する
+					p = instr(getline,,";")
+					if(p != -1) :getline = strmid(getline, 0, p)
+					// パラメータである場合のみ反映する
+					p = instr(getline,,"=")
+					if(p == -1) :_continue
+					sdim param_name, 1024
+					param_name = strmid(getline, 0, p)
+					sdim param_value, 1024
+					param_value = strmid(getline, p + 1, strlen(getline) - p - 1)
+					//パラメータの種類によって場合分け
+					;自動撮影
+					if(param_name == "auto_cap") :auto_cap_flg@ = limit(int(param_value), 0, 1) :_continue
+					if(param_name == "auto_cap_antiair_cutin") :auto_cap_antiair_cutin_flg@  = limit(int(param_value), 0, 1) :_continue
+					if(param_name == "auto_cap_day_cutin")     :auto_cap_day_cutin_flg@      = limit(int(param_value), 0, 1) :_continue
+					if(param_name == "auto_cap_day_attack")    :auto_cap_day_attack_flg@     = limit(int(param_value), 0, 1) :_continue
+					if(param_name == "auto_cap_night_cutin")   :auto_cap_night_cutin_flg@    = limit(int(param_value), 0, 1) :_continue
+					if(param_name == "auto_cap_night_attack")  :auto_cap_night_attack_flg@   = limit(int(param_value), 0, 1) :_continue
+					if(param_name == "auto_cap_broken")        :auto_cap_broken_flg@         = limit(int(param_value), 0, 1) :_continue
+					if(param_name == "auto_cap_help_damage")   :auto_cap_help_damage_flg@    = limit(int(param_value), 0, 1) :_continue
+					if(param_name == "auto_cap_bomb_damage")   :auto_cap_bomb_damage_flg@    = limit(int(param_value), 0, 1) :_continue
+					;保存設定
+					if(param_name == "save_buffer_size"){
+						save_buffer_size@ = limit(int(param_value), 1, 49)
+						save_buffer_size_index@ = save_buffer_size@ - 1
+						_continue
+					}
+					if(param_name == "frame_rate"){
+						frame_rate@ = limit(int(param_value), 1, 60)
+						frame_rate_index@ = frame_rate@ - 1
+						_continue
+					}
+					if(param_name == "file_type"){
+						param_value = getpath(param_value, 16)
+						if(param_value == "bmp"){
+							file_type@ = kFileTypeBmp@
+						}
+						if((param_value == "jpg") || (param_value == "jpeg")){
+							file_type@ = kFileTypeJpeg@
+						}
+						if(param_value == "png"){
+							file_type@ = kFileTypePng@
+						}
+						_continue
+					}
+					if(param_name == "save_type"){
+						if(param_value == "past"){
+							save_type@ = kSaveTypePast@
+						}
+						if(param_value == "now"){
+							save_type@ = kSaveTypeNow@
+						}
+						if(param_value == "future"){
+							save_type@ = kSaveTypeFuture@
+						}
+						_continue
+					}
+					if(param_name == "folder_path") :folder_path@ = param_value :_continue
+					if(param_name == "shortcut_key") :shortcut_flg@ = limit(int(param_value), 0, 1) :_continue
+					;その他
+					if(param_name == "get_pos_mode"){
+						if(param_value == "auto"){
+							get_pos_mode@ = kGetPosAuto@
+						}
+						if(param_value == "click"){
+							get_pos_mode@ = kGetPosClick@
+						}
+						if(param_value == "crop"){
+							get_pos_mode@ = kGetPosCrop@
+						}
+						if(param_value == "manual"){
+							get_pos_mode@ = kGetPosManual@
+						}
+						_continue
+					}
+					if(param_name == "check_move_flash") :check_move_flash_flg@ = limit(int(param_value), 0, 1) :_continue
+				next
+			}
+		return
+		#deffunc SaveSoftData
+			sdim text_buffer, 32000
+			text_buffer += "[自動撮影]\n"
+			text_buffer += "auto_cap=" + auto_cap_flg@ + "\n"
+			text_buffer += "auto_cap_antiair_cutin=" + auto_cap_antiair_cutin_flg@ + "\n"
+			text_buffer += "auto_cap_day_cutin=" + auto_cap_day_cutin_flg@ + "\n"
+			text_buffer += "auto_cap_day_attack=" + auto_cap_day_attack_flg@ + "\n"
+			text_buffer += "auto_cap_night_cutin=" + auto_cap_night_cutin_flg@ + "\n"
+			text_buffer += "auto_cap_night_attack=" + auto_cap_night_attack_flg@ + "\n"
+			text_buffer += "auto_cap_broken=" + auto_cap_broken_flg@ + "\n"
+			text_buffer += "auto_cap_help_damage=" + auto_cap_help_damage_flg@ + "\n"
+			text_buffer += "auto_cap_bomb_damage=" + auto_cap_bomb_damage_flg@ + "\n"
+			text_buffer += "\n"
+			text_buffer += "[保存設定]\n"
+			text_buffer += "save_buffer_size=" + save_buffer_size@ + "\n"
+			text_buffer += "frame_rate=" + frame_rate@ + "\n"
+			text_buffer += "file_type="
+			if(file_type@ == kFileTypeBmp@){
+				text_buffer += "bmp\n"
+			}else{if(file_type@ == kFileTypeJpeg@){
+				text_buffer += "jpg\n"
+			}else{if(file_type@ == kFileTypePng@){
+				text_buffer += "png\n"
+			}else{
+				text_buffer += "png\n"
+			}}}
+			text_buffer += "save_type="
+			if(save_type@ == kSaveTypePast@){
+				text_buffer += "past\n"
+			}else{if(save_type@ == kSaveTypeNow@){
+				text_buffer += "now\n"
+			}else{if(save_type@ == kSaveTypeFuture@){
+				text_buffer += "future\n"
+			}else{
+				text_buffer += "now\n"
+			}}}
+			text_buffer += "folder_path=" + folder_path@ + "\n"
+			text_buffer += "shortcut_key=" + shortcut_flg@ + "\n"
+			text_buffer += "\n"
+			text_buffer += "[その他]\n"
+			text_buffer += "get_pos_mode="
+			if(get_pos_mode@ == kGetPosAuto@){
+				text_buffer += "auto\n"
+			}else{if(get_pos_mode@ == kGetPosClick@){
+				text_buffer += "click\n"
+			}else{if(get_pos_mode@ == kGetPosCrop@){
+				text_buffer += "crop\n"
+			}else{if(get_pos_mode@ == kGetPosManual@){
+				text_buffer += "manual\n"
+			}else{
+				text_buffer += "auto\n"
+			}}}}
+			text_buffer += "check_move_flash=" + check_move_flash_flg@ + "\n"
+			notesel text_buffer
+			notesave exe_path@ + "\\setting.ini"
+		return
 	#global
 
 /* ウィンドウ・バッファ初期化 */
@@ -337,7 +494,7 @@
 	buffer kCheckBufferID, kFlashWX + 2, kFlashWY + 2
 
 // オプション画面
-	screen kOptionWindowID, POS_X(2), POS_Y(6)
+	screen kOptionWindowID, POS_X(2), POS_Y(8)
 	title "オプション"
 	objsize SIZE_X(2), SIZE_Y(1)
 		POS_XY 0, 0
@@ -352,6 +509,10 @@
 			chkbox "夜戦連撃・夜戦砲撃", auto_cap_night_attack_flg
 		POS_XY 0, 5
 			chkbox "中破・大破時", auto_cap_broken_flg
+		POS_XY 0, 6
+			chkbox "支援射撃", auto_cap_help_damage_flg
+		POS_XY 0, 7
+			chkbox "開幕爆撃", auto_cap_bomb_damage_flg
 	gsel kOptionWindowID, -1
 
 // メイン画面
@@ -382,14 +543,16 @@
 			button gosub "参照...", *browse
 		POS_XY 0, 4
 			button gosub "選択...", *option
+		POS_XY 1, 4
+			chkbox "自動撮影", auto_cap_flg
+		POS_XY 2, 4
+			chkbox "ズレ補正", check_move_flash_flg
 	objsize SIZE_X(2), SIZE_Y(1)
 		POS_XY 1, 2
 			chkbox "ショートカットキーを使用", shortcut_flg
 		POS_XY 1, 3
 			input folder_path
 			folder_path_id = stat
-		POS_XY 1, 4
-			chkbox "特定シーン自動撮影", auto_cap_flg
 
 	objenable save_picture_button_id, FALSE
 	objenable folder_path_id, FALSE
@@ -443,7 +606,7 @@
 				PutLog "【ズレ検出】"
 				PutLog "　対象を見失いました。"
 				get_pos_flg = FALSE
-				get_pos_manual_flg = FALSE
+				is_special_size_flg = FALSE
 				gsel kMainWindowID
 				objenable save_picture_button_id, FALSE
 			}else{
@@ -456,7 +619,7 @@
 					gosub *get_pos_local
 				}else{
 					// 艦これの画面の周囲のRGB値から、ズレがないかを判定する
-					if(get_pos_manual_flg == FALSE){
+					if((is_special_size_flg == FALSE) && (check_move_flash_flg)){
 						if(CheckMoveFlash(window_handle, flash_position)){
 							gosub *get_pos_local
 						}
@@ -464,7 +627,7 @@
 				}
 			}
 			// 自動撮影
-			if(get_pos_manual_flg == FALSE){
+			if(is_special_size_flg == FALSE){
 				if((auto_cap_flg) && (auto_cap_stop_flg == FALSE)){
 					gsel kRingBufferID + (cnt \ ring_buffer_size)
 					if(auto_cap_antiair_cutin_flg){
@@ -562,6 +725,42 @@
 						}
 						}
 					}
+					if(auto_cap_help_damage_flg){
+					if(NearColor(24,41,30,175,180)){
+					if(NearColor(80,49,29,189,192)){
+					if(NearColor(123,35,29,180,184)){
+						for k, 0, 6
+							if(NearColor(700,155 + 45 * k,255,255,255)){
+							if(NearColor(700,179 + 45 * k,255,255,255)){
+								PutLog "【自動撮影(支援射撃)】"
+								gosub *set_picture_timer
+								auto_cap_stop_flg = TRUE
+								_break
+							}
+							}
+						next
+					}
+					}
+					}
+					}
+					if(auto_cap_bomb_damage_flg){
+					if(NearColor(24,41,30,173,176)){
+					if(NearColor(57,47,29,189,192)){
+					if(NearColor(73,31,29,180,184)){
+						for k, 0, 6
+							if(NearColor(700,155 + 45 * k,255,255,255)){
+							if(NearColor(700,179 + 45 * k,255,255,255)){
+								PutLog "【自動撮影(開幕爆撃)】"
+								gosub *set_picture_timer
+								auto_cap_stop_flg = TRUE
+								_break
+							}
+							}
+						next
+					}
+					}
+					}
+					}
 				}
 			}
 		}
@@ -589,7 +788,7 @@
 *ring_buffer_init
 	ring_buffer_size = save_buffer_size * 2 + 1	;リングバッファに記録する枚数
 	repeat ring_buffer_size
-		buffer kRingBufferID + cnt, game_window_size(0, get_pos_manual_flg), game_window_size(1, get_pos_manual_flg)
+		buffer kRingBufferID + cnt, game_window_size(0, is_special_size_flg), game_window_size(1, is_special_size_flg)
 	loop
 return
 
@@ -776,12 +975,16 @@ return
 	WindowScreenShot kDesktopBufferID, window_handle, window_param
 	if(get_pos_mode != kGetPosManual){
 		FlashPositionSearch kDesktopBufferID, flash_position
-		get_pos_manual_flg = FALSE
+		is_special_size_flg = FALSE
 	}else{
 		square.0 += desktop_param(0) - window_param(0)
 		square.1 += desktop_param(1) - window_param(1)
 		GamePositionSearch kDesktopBufferID, square, flash_position, game_window_size
-		get_pos_manual_flg = TRUE
+		if((game_window_size(0, 1) == kFlashWX) && (game_window_size(1, 1) == kFlashWY)){
+			is_special_size_flg = FALSE
+		}else{
+			is_special_size_flg = TRUE
+		}
 	}
 	get_pos_flg = TRUE
 	gsel kMainWindowID
@@ -790,14 +993,14 @@ return
 	PutLog "　ウィンドウハンドル：" + window_handle
 	PutLog "　ウィンドウ左上座標：" + window_param(0) + "," + window_param(1)
 	PutLog "　ウィンドウサイズ：" + window_param(2) + "," + window_param(3)
-	if(get_pos_manual_flg == FALSE){
+	if(is_special_size_flg == FALSE){
 		PutLog "　艦これ相対左上座標：" + flash_position(0) + "," + flash_position(1)
 	}else{
 		PutLog "　ゲーム相対左上座標：" + flash_position(0) + "," + flash_position(1)
 		PutLog "　ゲーム画面サイズ：" + game_window_size(0, 1) + "," + game_window_size(1, 1)
 	}
 	// マニュアルモード対応のための特殊処理
-	buffer kCheckBufferID, game_window_size(0, get_pos_manual_flg) + 2, game_window_size(1, get_pos_manual_flg) + 2
+	buffer kCheckBufferID, game_window_size(0, is_special_size_flg) + 2, game_window_size(1, is_special_size_flg) + 2
 	gosub *ring_buffer_init
 return
 
@@ -806,7 +1009,7 @@ return
 	PutLog "【ズレ検出】"
 	GetWindowParam window_handle, window_param
 	WindowScreenShot kDesktopBufferID, window_handle, window_param
-	if(get_pos_manual_flg == FALSE){
+	if(is_special_size_flg == FALSE){
 		FlashPositionSearch kDesktopBufferID, flash_position
 		PutLog "　艦これ相対左上座標：" + flash_position(0) + "," + flash_position(1)
 	}else{
@@ -848,7 +1051,7 @@ return
 			next
 		swbreak
 		case kFileTypePng
-			cvbuffer kCVFlashBufferID, game_window_size(0, get_pos_manual_flg), game_window_size(1, get_pos_manual_flg)
+			cvbuffer kCVFlashBufferID, game_window_size(0, is_special_size_flg), game_window_size(1, is_special_size_flg)
 			for k, 0, ring_buffer_size
 				gsel kRingBufferID + (k + cnt + 1) \ ring_buffer_size
 				cvputimg kCVFlashBufferID
@@ -856,7 +1059,7 @@ return
 			next
 		swbreak
 		case kFileTypeJpeg
-			cvbuffer kCVFlashBufferID, game_window_size(0, get_pos_manual_flg), game_window_size(1, get_pos_manual_flg)
+			cvbuffer kCVFlashBufferID, game_window_size(0, is_special_size_flg), game_window_size(1, is_special_size_flg)
 			for k, 0, ring_buffer_size
 				gsel kRingBufferID + (k + cnt + 1) \ ring_buffer_size
 				cvputimg kCVFlashBufferID
@@ -886,6 +1089,7 @@ return
 	if(wparam != kMainWindowID){
 			gsel wparam, -1
 	}else{
+		SaveSoftData
 		exit_flg = TRUE
 	}
 return
