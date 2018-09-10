@@ -1,4 +1,4 @@
-/* 戦場のカメラマン 青葉 Ver.1.2 */
+/* 戦場のカメラマン 青葉 Ver.1.3 */
 
 	#packopt name "wareaoba"
 	#include "hspcv.as"
@@ -20,6 +20,7 @@
 	#enum kDesktopBufferID	;デスクトップのスクショを保存するためのID
 	#enum kFlashBufferID	;艦これの画面を保存するためのID
 	#enum kCheckBufferID	;ズレ検出用のID
+	#enum kOptionWindowID	;選択画面のID
 	#enum kRingBufferID		;リングバッファの最初のID
 	// CV画面ID
 	#enum global kCVDesktopBufferID = 0
@@ -33,7 +34,7 @@
 	#const kObjSpaceX kObjX + kObjSpace
 	#const kObjSpaceY kObjY + kObjSpace
 	#const kMainWX POS_X(3)	;メイン画面の大きさ
-	#const kMainWY POS_Y(9)
+	#const kMainWY POS_Y(10)
 	#const kLargeFontSize 30	;フォントサイズ
 	// 座標取得モード
 	#enum kGetPosAuto = 0	;オート(デスクトップのスクショから自動認識)
@@ -85,12 +86,18 @@
 	move_y.0 = 1,  1, -1, -1,  1,  0, -1,  0
 	;その他初期設定
 	save_buffer_size = 10						;保存する前後のフレーム数
-	frame_rate = 20								;保存するfps
+	frame_rate = 5								;保存するfps
 	save_buffer_size_index = save_buffer_size - 1
 	frame_rate_index = frame_rate - 1
 	file_type = kFileTypePng					;保存するファイルタイプ
 	save_type = kSaveTypeNow					;保存時のモード
 	sdim folder_path, 260						;フォルダパス
+	auto_cap_antiair_cutin_flg = TRUE
+	auto_cap_day_cutin_flg     = TRUE
+	auto_cap_day_attack_flg    = TRUE
+	auto_cap_night_cutin_flg   = TRUE
+	auto_cap_night_attack_flg  = TRUE
+	auto_cap_broken_flg        = TRUE
 
 /* モジュール */
 	#module api
@@ -226,10 +233,10 @@
 			if(param_1 < param_2) :return param_1
 		return param_2
 		// ログに追記
-		#deffunc PutLog var soft_log, str message
-			soft_log += message
+		#deffunc PutLog str message
+			soft_log@ += message + "\n"
 			gsel kMainWindowID@
-			objprm 0, soft_log
+			objprm 0, soft_log@
 			sendmsg hMesBox@, EM_SCROLL, SB_BOTTOM, 0
 		return
 		// 現在時刻を取得
@@ -247,6 +254,18 @@
 			line square_x2, square_y2, square_x1, square_y2
 			line square_x1, square_y2, square_x1, square_y1
 		return
+		// 色判定
+		#defcfunc NearColor int px_, int py_, int clr_r_, int clr_g_, int clr_b_
+			pget px_, py_
+			diff_r = ginfo_r - clr_r_
+			diff_g = ginfo_g - clr_g_
+			diff_b = ginfo_b - clr_b_
+			diff = diff_r * diff_r + diff_g * diff_g + diff_b * diff_b
+			if(diff < 100) :return TRUE
+		return FALSE
+		// 撮影タイミングを指定秒だけ後にズラす
+		#defcfunc WaitTime double time
+		return int(time * frame_rate@ + 0.5)
 	#global
 
 /* ウィンドウ・バッファ初期化 */
@@ -256,16 +275,33 @@
 	buffer kFlashBufferID, kFlashWX + 2, kFlashWY + 2
 	buffer kCheckBufferID, kFlashWX + 2, kFlashWY + 2
 
+// オプション画面
+	screen kOptionWindowID, POS_X(2), POS_Y(6)
+	title "オプション"
+	objsize SIZE_X(2), SIZE_Y(1)
+		POS_XY 0, 0
+			chkbox "対空カットイン", auto_cap_antiair_cutin_flg
+		POS_XY 0, 1
+			chkbox "昼戦カットイン", auto_cap_day_cutin_flg
+		POS_XY 0, 2
+			chkbox "昼戦連撃・昼戦砲撃", auto_cap_day_attack_flg
+		POS_XY 0, 3
+			chkbox "夜戦カットイン", auto_cap_night_cutin_flg
+		POS_XY 0, 4
+			chkbox "夜戦連撃・夜戦砲撃", auto_cap_night_attack_flg
+		POS_XY 0, 5
+			chkbox "中破・大破時", auto_cap_broken_flg
+	gsel kOptionWindowID, -1
+
 // メイン画面
 	screen kMainWindowID, kMainWX, kMainWY
 	gsel kMainWindowID, 2
 	title kSoftName
 	// オブジェクト描画
-	POS_XY 0, 4
+	POS_XY 0, 5
 		mesbox soft_log, SIZE_X(3), SIZE_Y(5), 4
 		hMesBox = objinfo(stat, 2)
 	objsize SIZE_X(1), SIZE_Y(1)
-	;座標取得
 		POS_XY 0, 0
 			combox get_pos_mode,,"オート\nクリック\nクロップ"
 		POS_XY 1, 0
@@ -283,12 +319,16 @@
 			combox save_type,,"過去\n現在\n未来"
 		POS_XY 0, 3
 			button gosub "参照...", *browse
+		POS_XY 0, 4
+			button gosub "選択...", *option
 	objsize SIZE_X(2), SIZE_Y(1)
 		POS_XY 1, 2
 			chkbox "ショートカットキーを使用", shortcut_flg
 		POS_XY 1, 3
 			input folder_path
 			folder_path_id = stat
+		POS_XY 1, 4
+			chkbox "特定シーン自動撮影", auto_cap_flg
 
 	objenable save_picture_button_id, FALSE
 	objenable folder_path_id, FALSE
@@ -298,6 +338,7 @@
 	shortcut_set_flg = FALSE
 	save_buffer_size_index_ = save_buffer_size_index
 	frame_rate_index_ = frame_rate_index
+	auto_cap_flg_ = auto_cap_flg
 	dim window_param_, kRectDim
 	repeat
 		// 終了フラグ
@@ -313,22 +354,33 @@
 		if(save_buffer_size_index_ != save_buffer_size_index){
 			save_buffer_size = save_buffer_size_index + 1
 			gosub *ring_buffer_init
-			PutLog soft_log, "【設定変更】\n"
-			PutLog soft_log, "　保存枚数：" + save_buffer_size + "\n"
+			PutLog "【設定変更】"
+			PutLog "　保存枚数：" + save_buffer_size
 			save_buffer_size_index_ = save_buffer_size_index
 		}
 		if(frame_rate_index_ != frame_rate_index){
 			frame_rate = frame_rate_index + 1
-			PutLog soft_log, "【設定変更】\n"
-			PutLog soft_log, "　フレームレート：" + frame_rate + "\n"
+			PutLog "【設定変更】"
+			PutLog "　フレームレート：" + frame_rate
 			frame_rate_index_ = frame_rate_index
+		}
+		if(auto_cap_flg_ != auto_cap_flg){
+			PutLog "【設定変更】"
+			if(auto_cap_flg){
+				PutLog "　自動撮影：ON"
+			}else{
+				PutLog "　自動撮影：OFF"
+			}
+			auto_cap_flg_ = auto_cap_flg
+			auto_cap_stop_flg = FALSE
 		}
 		// 対象ウィンドウの状況を随時監視する
 		if(get_pos_flg){
+			// ズレ検出・ズレ補正
 			GetWindowParam window_handle, window_param_
 			if((window_param_(2) == 0) || (window_param_(3) == 0)){
-				PutLog soft_log, "【ズレ検出】\n"
-				PutLog soft_log, "　対象を見失いました。\n"
+				PutLog "【ズレ検出】"
+				PutLog "　対象を見失いました。"
 				get_pos_flg = FALSE
 				gsel kMainWindowID
 				objenable save_picture_button_id, FALSE
@@ -344,6 +396,105 @@
 					// 艦これの画面の周囲のRGB値から、ズレがないかを判定する
 					if(CheckMoveFlash(window_handle, flash_position)){
 						gosub *get_pos_local
+					}
+				}
+			}
+			// 自動撮影
+			if((auto_cap_flg) && (auto_cap_stop_flg == FALSE)){
+				gsel kRingBufferID + (cnt \ ring_buffer_size)
+				if(auto_cap_antiair_cutin_flg){
+					if(NearColor(785,11,163,198,221)){
+					if(NearColor(7,13,172,204,224)){
+					if(NearColor(787,473,137,183,206)){
+						PutLog "【自動撮影(対空カットイン)】"
+						gosub *set_picture_timer
+						save_picture_count += WaitTime(1.0)
+						auto_cap_stop_flg = TRUE
+					}
+					}
+					}
+				}
+				if(auto_cap_day_cutin_flg){
+					if(NearColor(24,40,103,195,217)){
+					if(NearColor(31,41,102,201,222)){
+					if(NearColor(48,43,102,201,222)){
+						PutLog "【自動撮影(昼戦カットイン)】"
+						gosub *set_picture_timer
+						save_picture_count += WaitTime(1.6)
+						auto_cap_stop_flg = TRUE
+					}
+					}
+					}
+				}
+				if(auto_cap_day_attack_flg){
+					if(NearColor(24,41,29,179,183)){
+					if(NearColor(27,465,246,241,233)){
+					if(NearColor(262,461,234,225,215)){
+					/* 敵の場合は下2行を次のように書き換える
+					if(NearColor(473,464,248,243,235)){
+					if(NearColor(708,462,228,219,209)){*/
+						PutLog "【自動撮影(昼戦連撃・昼戦砲撃)】"
+						gosub *set_picture_timer
+						auto_cap_stop_flg = TRUE
+					}
+					}
+					}
+				}
+				if(auto_cap_night_cutin_flg){
+					if(NearColor(25,41,18,20,22)){
+					if(NearColor(20,41,3,3,9)){
+					if(NearColor(49,35,18,20,22)){
+						PutLog "【自動撮影(夜戦カットイン)】"
+						gosub *set_picture_timer
+						save_picture_count += WaitTime(1.0)
+						auto_cap_stop_flg = TRUE
+					}
+					}
+					}
+				}
+				if(auto_cap_night_attack_flg){
+					if(NearColor(25,41,219,238,254)){
+					if(NearColor(27,465,246,241,233)){
+					if(NearColor(262,461,234,225,215)){
+					/* 敵の場合は下2行を次のように書き換える
+					if(NearColor(473,464,248,243,235)){
+					if(NearColor(708,462,228,219,209)){*/
+						PutLog "【自動撮影(夜戦連撃・夜戦砲撃)】"
+						gosub *set_picture_timer
+						auto_cap_stop_flg = TRUE
+					}
+					}
+					}
+				}
+				if(auto_cap_broken_flg){
+					// 中破・大破時
+					// この場合では、本来WaitTimeでズラさなくても
+					// 正確なタイミングで撮れるが、被弾～中破絵までの
+					// 一連が10枚・5fpsで綺麗に収まるようにズラした
+					// (このズラしは現在モードにのみ反映される)
+					if(NearColor(0,0,250,250,250)){
+					if(NearColor(700,316,230,180,114)){
+					if(NearColor(760,447,238,180,116)){
+						PutLog "【自動撮影(中破時)】"
+						gosub *set_picture_timer
+						if(save_type == kSaveTypeNow){
+							save_picture_count += WaitTime(0.8)
+						}
+						auto_cap_stop_flg = TRUE
+					}
+					}
+					}
+					if(NearColor(0,0,250,250,250)){
+					if(NearColor(705,326,255,101,93)){
+					if(NearColor(766,472,147,82,79)){
+						PutLog "【自動撮影(大破時)】"
+						gosub *set_picture_timer
+						if(save_type == kSaveTypeNow){
+							save_picture_count += WaitTime(0.8)
+						}
+						auto_cap_stop_flg = TRUE
+					}
+					}
 					}
 				}
 			}
@@ -378,7 +529,7 @@ return
 
 /* 艦これの画面の座標とハンドルを取得する */
 *get_pos
-	PutLog soft_log, "【座標取得】\n"
+	PutLog "【座標取得】"
 
 	// デスクトップのスクリーンショットを取得する
 	dim desktop_param, kRectDim	;モニタ全体のオフセットとサイズ
@@ -408,7 +559,7 @@ return
 			repeat
 				stick key, kStickMouse
 				if(key & kStickEscKey){
-					PutLog soft_log, "　キャンセルされました。\n"
+					PutLog "　キャンセルされました。"
 					break
 				}
 				if(key & kStickMouse){
@@ -437,7 +588,7 @@ return
 			repeat
 				stick key, kStickMouse
 				if(key & kStickEscKey){
-					PutLog soft_log, "　キャンセルされました。\n"
+					PutLog "　キャンセルされました。"
 					gsel kSelectWindowID, -1
 					break
 				}
@@ -503,19 +654,19 @@ return
 	gsel kMainWindowID
 	objenable save_picture_button_id, TRUE
 
-	PutLog soft_log, "　ウィンドウハンドル：" + window_handle + "\n"
-	PutLog soft_log, "　ウィンドウ左上座標：" + window_param(0) + "," + window_param(1) + "\n"
-	PutLog soft_log, "　ウィンドウサイズ：" + window_param(2) + "," + window_param(3) + "\n"
-	PutLog soft_log, "　艦これ相対左上座標：" + flash_position(0) + "," + flash_position(1) + "\n"
+	PutLog "　ウィンドウハンドル：" + window_handle
+	PutLog "　ウィンドウ左上座標：" + window_param(0) + "," + window_param(1)
+	PutLog "　ウィンドウサイズ：" + window_param(2) + "," + window_param(3)
+	PutLog "　艦これ相対左上座標：" + flash_position(0) + "," + flash_position(1)
 return
 
 /* 艦これの座標を取得し直す */
 *get_pos_local
-	PutLog soft_log, "【ズレ検出】\n"
+	PutLog "【ズレ検出】"
 	GetWindowParam window_handle, window_param
 	WindowScreenShot kDesktopBufferID, window_handle, window_param
 	FlashPositionSearch kDesktopBufferID, flash_position
-	PutLog soft_log, "　艦これ相対左上座標：" + flash_position(0) + "," + flash_position(1) + "\n"
+	PutLog "　艦これ相対左上座標：" + flash_position(0) + "," + flash_position(1)
 return
 
 /* リングバッファに保存するためのタイマーを仕掛ける */
@@ -537,8 +688,8 @@ return
 /* リングバッファの画像を保存する */
 *save_pictures
 	if(get_pos_flg == FALSE) :return
-	PutLog soft_log, "【画像保存】\n"
-	PutLog soft_log, "　画像保存中……\n"
+	PutLog "【画像保存】"
+	PutLog "　画像保存中……"
 	filename = NowTime()
 	if(folder_path != ""){
 		filename = folder_path + "\\" + filename
@@ -567,8 +718,9 @@ return
 			next
 		swbreak
 	swend
-	PutLog soft_log, "　画像保存完了\n"
+	PutLog "　画像保存完了"
 	save_picture_count = -1
+	auto_cap_stop_flg = FALSE
 return
 
 /* フォルダ参照 */
@@ -578,7 +730,16 @@ return
 	objprm folder_path_id, folder_path
 return
 
+/* 設定画面表示 */
+*option
+	gsel kOptionWindowID, 2
+return
+
 /* 終了時の処理(Windows 8以降用対策) */
 *exit
-	exit_flg = TRUE
+	if(wparam != kMainWindowID){
+			gsel wparam, -1
+	}else{
+		exit_flg = TRUE
+	}
 return
