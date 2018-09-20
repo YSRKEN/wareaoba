@@ -672,6 +672,7 @@ return
 		for k, 0, count
 			DesktopScreenShot kDesktopBufferID, desktop_param
 			screen kSelectWindowID, select_w, select_h + 24, 4
+			gsel kSelectWindowID, 2
 			title "艦これの画面なら「選択」、違うなら「次へ」をクリック (" + (k + 1) + "/" + count + ")"
 			gzoom select_w, select_h, kDesktopBufferID, rectangles(0, k), rectangles(1, k), rectangles(2, k), rectangles(3, k)
 			color 192, 0, 0
