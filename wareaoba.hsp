@@ -667,20 +667,22 @@ return
 	select_idx = 0
 	if (count > 1){
 		select_idx = -1
+		select_w = 600
+		select_h = select_w / 5 * 3
 		for k, 0, count
 			DesktopScreenShot kDesktopBufferID, desktop_param
-			screen kSelectWindowID, 800, 480 + 24, 4
+			screen kSelectWindowID, select_w, select_h + 24, 4
 			title "艦これの画面なら「選択」、違うなら「次へ」をクリック (" + (k + 1) + "/" + count + ")"
-			gzoom 800, 480, kDesktopBufferID, rectangles(0, k), rectangles(1, k), rectangles(2, k), rectangles(3, k)
+			gzoom select_w, select_h, kDesktopBufferID, rectangles(0, k), rectangles(1, k), rectangles(2, k), rectangles(3, k)
 			color 192, 0, 0
-			boxf 0, 480, 80, 480 + 24
+			boxf 0, select_h, 80, select_h + 24
 			color 0, 0, 192
-			boxf 80, 480, 160, 480 + 24
+			boxf 80, select_h, 160, select_h + 24
 			color 255, 255, 255
 			font msgothic, 24, 1
-			pos 0, 480
+			pos 0, select_h
 			mes "選択"
-			pos 80, 480
+			pos 80, select_h
 			mes "次へ"
 			select_flg = 0
 			repeat
@@ -689,7 +691,7 @@ return
 					my = mousey
 					mx = mousex
 					logmes "" + mx + "," + my + " " + select_idx + " " + select_flg
-					if ((my >= 480) && (mx < 160)) {
+					if ((my >= select_h) && (mx < 160)) {
 						if (mx < 80){
 							select_idx = k
 							select_flg = 1
