@@ -664,11 +664,55 @@ return
 	// そこから艦これの画面を探す
 	count = Auto@SearchKanCollePos(kDesktopBufferID, rectangles, kTempBufferID)
 	if (count == 0) :return
+	select_idx = 0
+	if (count > 1){
+		select_idx = -1
+		for k, 0, count
+			DesktopScreenShot kDesktopBufferID, desktop_param
+			screen kSelectWindowID, 800, 480 + 24, 4
+			title "艦これの画面なら「選択」、違うなら「次へ」をクリック (" + (k + 1) + "/" + count + ")"
+			gzoom 800, 480, kDesktopBufferID, rectangles(0, k), rectangles(1, k), rectangles(2, k), rectangles(3, k)
+			color 192, 0, 0
+			boxf 0, 480, 80, 480 + 24
+			color 0, 0, 192
+			boxf 80, 480, 160, 480 + 24
+			color 255, 255, 255
+			font msgothic, 24, 1
+			pos 0, 480
+			mes "選択"
+			pos 80, 480
+			mes "次へ"
+			select_flg = 0
+			repeat
+				stick ky, 256
+				if (ky & 256) {
+					my = mousey
+					mx = mousex
+					logmes "" + mx + "," + my + " " + select_idx + " " + select_flg
+					if ((my >= 480) && (mx < 160)) {
+						if (mx < 80){
+							select_idx = k
+							select_flg = 1
+							break
+						}else{
+							break
+						}
+					}
+				}
+				await 10
+			loop
+			gsel kSelectWindowID, -1
+			if (select_flg == 1){
+				_break
+			}
+		next
+	}
+	if(select_idx < 0) :return
 	is_special_size_flg = TRUE
-	flash_position(0) = rectangles(0, 0)
-	flash_position(1) = rectangles(1, 0)
-	game_window_size(0, 1) = rectangles(2, 0)
-	game_window_size(1, 1) = rectangles(3, 0)
+	flash_position(0) = rectangles(0, select_idx)
+	flash_position(1) = rectangles(1, select_idx)
+	game_window_size(0, 1) = rectangles(2, select_idx)
+	game_window_size(1, 1) = rectangles(3, select_idx)
 	get_pos_flg = TRUE
 	gsel kMainWindowID
 	objenable save_picture_button_id, TRUE
